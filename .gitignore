@@ -1,0 +1,89 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode settings
+.vscode/
+
+# Environment variables
+.env
+.env.*
+
+# PyInstaller
+*.manifest
+*.spec
+
+dist/
+build/
+
+# Installer logs
+debug.log
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Data files
+*.csv
+*.tsv
+*.log
+*.out
+*.tmp
+*.dat
+*.pkl
+*.h5
+*.pth
+*.ckpt
+
+# Model files
+*.pt
+*.bin
+*.onnx
+
+# Tokenizer files
+*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output
+*.txt
+
+# Ignore output folders
+output/
+outputs/
+results/
+
+# Ignore user files
+*.swp
+*.swo
+
+# Ignore OneDrive temp files
+~$*
+
+
+model/
