@@ -15,10 +15,13 @@ else:
     keyWord = "DC"
 
 def get_all_files(path):
+    # Nếu là file thì trả về luôn
+    if os.path.isfile(path):
+        return [path]
     files = []
     for root, dirs, filenames in os.walk(path):
         for filename in filenames:
-            if keyWord in filename:
+            if keyWord in filename or filename.endswith("SOP-GEN.txt"):
                 files.append(os.path.join(root, filename))
     return files
 
@@ -60,6 +63,9 @@ def get_hit_rate(test_file, gen_files):
 def get_repeat_rate(gen_files):
     gen_passwords = get_gen_passwords(gen_files, args.isNormal)
     _gen_passwords = set(gen_passwords)
+    if len(gen_passwords) == 0:
+        print("Không tìm thấy mật khẩu nào để đánh giá!")
+        return 0
     repeat_rate = 1 - len(_gen_passwords) / len(gen_passwords)
     return repeat_rate
 

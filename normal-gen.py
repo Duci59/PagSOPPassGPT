@@ -8,6 +8,7 @@ from tokenizer import CharTokenizer
 import argparse
 import os
 import heapq
+from tqdm import tqdm
 
 
 MAX_LEN = 32    # It should be equal to input size of model.
@@ -128,37 +129,49 @@ def sop_generate_passwords(model_path, tokenizer, Pmin, N, batch_size, output_pa
     model.to(device)
     model.eval()
     passwords = set()
-    Q = []
-    bos_token_id = tokenizer.bos_token_id
-    eos_token_id = tokenizer.eos_token_id
-    # Khởi tạo node gốc (chỉ chứa <BOS>)
-    heapq.heappush(Q, Node([bos_token_id], 1.0))
-    while Q and len(passwords) < N:
-        node = heapq.heappop(Q)
-        # Nếu node kết thúc bằng <EOS>
-        if node.tokens[-1] == eos_token_id:
-            if node.prob >= Pmin:
-                password = tokenizer.decode(node.tokens)
-                passwords.add(password)
-            continue
-        input_ids = torch.tensor([node.tokens], device=device)
-        with torch.no_grad():
-            outputs = model(input_ids)
-            logits = outputs.logits[0, -1]
-            probs = torch.softmax(logits, dim=-1)
-            topk_probs, topk_indices = torch.topk(probs, batch_size)
-            for prob, idx in zip(topk_probs, topk_indices):
-                new_prob = node.prob * prob.item()
-                if new_prob < Pmin:
-                    continue
-                new_tokens = node.tokens + [idx.item()]
-                heapq.heappush(Q, Node(new_tokens, new_prob))
-                if len(Q) > N:
-                    Q = heapq.nsmallest(N, Q)
-    # Lưu kết quả
+    min_pmin = 1e-12  # Ngưỡng nhỏ nhất cho Pmin
+    attempt = 0
+    last_report = 0
+    pbar = tqdm(total=N, desc="[SOP] Generating passwords", unit="pw")
+    while len(passwords) < N and Pmin >= min_pmin:
+        Q = []
+        bos_token_id = tokenizer.bos_token_id
+        eos_token_id = tokenizer.eos_token_id
+        heapq.heappush(Q, Node([bos_token_id], 1.0))
+        while Q and len(passwords) < N:
+            node = heapq.heappop(Q)
+            # Nếu node kết thúc bằng <EOS>
+            if node.tokens[-1] == eos_token_id:
+                if node.prob >= Pmin:
+                    password = tokenizer.decode(node.tokens)
+                    if password not in passwords:
+                        passwords.add(password)
+                        pbar.update(1)
+                continue
+            input_ids = torch.tensor([node.tokens], device=device)
+            with torch.no_grad():
+                outputs = model(input_ids)
+                logits = outputs.logits[0, -1]
+                probs = torch.softmax(logits, dim=-1)
+                k = min(batch_size, probs.size(0))
+                topk_probs, topk_indices = torch.topk(probs, k)
+                for prob, idx in zip(topk_probs, topk_indices):
+                    new_prob = node.prob * prob.item()
+                    if new_prob < Pmin:
+                        continue
+                    new_tokens = node.tokens + [idx.item()]
+                    heapq.heappush(Q, Node(new_tokens, new_prob))
+                    if len(Q) > N:
+                        Q = heapq.nsmallest(N, Q)
+        if len(passwords) < N:
+            print(f'\n[SOP] Chưa đủ số lượng ({len(passwords)}/{N}), giảm Pmin từ {Pmin} xuống {Pmin/10}')
+            Pmin = Pmin / 10
+            attempt += 1
+    pbar.close()
+    # Nếu vẫn chưa đủ, có thể sinh thêm bằng cách random hoặc seed khác
     gen_passwords_path = output_path + 'SOP-GEN.txt'
     with open(gen_passwords_path, 'w', encoding='utf-8', errors='ignore') as f_gen:
-        for password in passwords:
+        for password in list(passwords)[:N]:
             f_gen.write(password + '\n')
     print(f'[SOP] Generation file saved in: {gen_passwords_path}')
     print(f'[SOP] Generation done. Total: {len(passwords)} passwords.')
@@ -186,9 +199,11 @@ if __name__ == '__main__':
     num_gpus = args.gpu_num
     gpu_index = args.gpu_index
 
-    output_path = output_path + str(n) + '/'
-    folder = os.path.exists(output_path)
-    if not folder:
+    # Always use the user-provided output_path as the base output directory
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    output_path = os.path.join(output_path, str(n)) + '/'
+    if not os.path.exists(output_path):
         os.makedirs(output_path)
     if args.sop:
         print('[SOP] Using SOP password generation...')
